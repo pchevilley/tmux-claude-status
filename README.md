@@ -69,6 +69,9 @@ Common locations:
 - `~/.config/tmux/plugins/tmux-claude-status`
 - `~/.tmux/plugins/tmux-claude-status`
 
+If you use Claude's `/statusline` command, keep `statusLine.command` pointing at this plugin script.
+The plugin will automatically pick up `~/.claude/statusline-command.sh`, mirror its output into tmux, and still keep the tmux cache in sync.
+
 ## tmux options
 
 ```tmux

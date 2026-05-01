@@ -82,6 +82,7 @@ class StatuslineTests(unittest.TestCase):
             env = os.environ.copy()
             env["TMUX_PANE"] = "%42"
             env["XDG_STATE_HOME"] = str(cache_root)
+            env["TMUX_CLAUDE_STATUS_DISABLE_PASSTHROUGH"] = "1"
 
             result = subprocess.run(
                 [str(SCRIPT)],
@@ -112,6 +113,7 @@ class StatuslineTests(unittest.TestCase):
             env = os.environ.copy()
             env["XDG_STATE_HOME"] = str(cache_root)
             env.pop("TMUX_PANE", None)
+            env["TMUX_CLAUDE_STATUS_DISABLE_PASSTHROUGH"] = "1"
 
             result = subprocess.run(
                 [str(SCRIPT)],
@@ -125,6 +127,91 @@ class StatuslineTests(unittest.TestCase):
             self.assertEqual(result.stdout, "[Haiku] hello")
             panes_dir = cache_root / "tmux-claude-status" / "panes"
             self.assertFalse(panes_dir.exists())
+
+    def test_statusline_script_uses_claude_generated_script_when_present(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            home_dir = Path(temp_dir) / "home"
+            claude_dir = home_dir / ".claude"
+            claude_dir.mkdir(parents=True, exist_ok=True)
+            passthrough_script = claude_dir / "statusline-command.sh"
+            passthrough_script.write_text(
+                "#!/bin/sh\n"
+                "cat >/dev/null\n"
+                "printf '\\033[1;36mproj\\033[0m  \\033[2mOpus\\033[0m'\n",
+                encoding="utf-8",
+            )
+
+            cache_root = Path(temp_dir) / "state"
+            payload = {
+                "session_id": "session-ansi",
+                "cwd": "/tmp/project",
+                "model": {"display_name": "Fallback"},
+                "context_window": {"used_percentage": 12},
+            }
+
+            env = os.environ.copy()
+            env["HOME"] = str(home_dir)
+            env["XDG_STATE_HOME"] = str(cache_root)
+            env["TMUX_PANE"] = "%5"
+
+            result = subprocess.run(
+                [str(SCRIPT)],
+                input=json.dumps(payload),
+                capture_output=True,
+                check=True,
+                text=True,
+                env=env,
+            )
+
+            self.assertEqual(result.stdout, "\x1b[1;36mproj\x1b[0m  \x1b[2mOpus\x1b[0m")
+            pane_path = cache_root / "tmux-claude-status" / "panes" / "%5.txt"
+            self.assertEqual(
+                pane_path.read_text(encoding="utf-8"),
+                "#[bold,fg=cyan]proj#[default]  #[dim]Opus#[default]",
+            )
+
+    def test_statusline_script_normalizes_literal_ansi_sequences_from_passthrough(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            home_dir = Path(temp_dir) / "home"
+            claude_dir = home_dir / ".claude"
+            claude_dir.mkdir(parents=True, exist_ok=True)
+            passthrough_script = claude_dir / "statusline-command.sh"
+            passthrough_script.write_text(
+                "#!/bin/sh\n"
+                "cat >/dev/null\n"
+                "dir='\\\\033[1;36mproj\\\\033[0m'\n"
+                "model='\\\\033[2mOpus\\\\033[0m'\n"
+                "printf '%s  %s' \"$dir\" \"$model\"\n",
+                encoding="utf-8",
+            )
+
+            cache_root = Path(temp_dir) / "state"
+            payload = {
+                "session_id": "session-literal-ansi",
+                "cwd": "/tmp/project",
+                "model": {"display_name": "Fallback"},
+            }
+
+            env = os.environ.copy()
+            env["HOME"] = str(home_dir)
+            env["XDG_STATE_HOME"] = str(cache_root)
+            env["TMUX_PANE"] = "%6"
+
+            result = subprocess.run(
+                [str(SCRIPT)],
+                input=json.dumps(payload),
+                capture_output=True,
+                check=True,
+                text=True,
+                env=env,
+            )
+
+            self.assertEqual(result.stdout, "\x1b[1;36mproj\x1b[0m  \x1b[2mOpus\x1b[0m")
+            pane_path = cache_root / "tmux-claude-status" / "panes" / "%6.txt"
+            self.assertEqual(
+                pane_path.read_text(encoding="utf-8"),
+                "#[bold,fg=cyan]proj#[default]  #[dim]Opus#[default]",
+            )
 
 
 if __name__ == "__main__":

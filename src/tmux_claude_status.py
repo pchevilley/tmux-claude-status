@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -14,6 +15,7 @@ from typing import Any
 
 
 DEFAULT_CACHE_ROOT = "tmux-claude-status"
+ANSI_ESCAPE_RE = re.compile(r"\x1b\[([0-9;]*)m")
 
 
 def default_cache_dir() -> Path:
@@ -155,6 +157,161 @@ def build_status_line(payload: dict[str, Any]) -> str:
         segments.append(formatted_duration)
 
     return " | ".join(segment for segment in segments if segment)
+
+
+def sgr_state_to_tmux(state: dict[str, Any]) -> str:
+    parts: list[str] = []
+    if state.get("bold"):
+        parts.append("bold")
+    if state.get("dim"):
+        parts.append("dim")
+    if state.get("italic"):
+        parts.append("italics")
+    if state.get("underscore"):
+        parts.append("underscore")
+    fg = state.get("fg")
+    if fg:
+        parts.append(f"fg={fg}")
+
+    if not parts:
+        return "#[default]"
+    return "#[" + ",".join(parts) + "]"
+
+
+def ansi_code_to_color(code: int) -> str | None:
+    mapping = {
+        30: "black",
+        31: "red",
+        32: "green",
+        33: "yellow",
+        34: "blue",
+        35: "magenta",
+        36: "cyan",
+        37: "white",
+        90: "brightblack",
+        91: "brightred",
+        92: "brightgreen",
+        93: "brightyellow",
+        94: "brightblue",
+        95: "brightmagenta",
+        96: "brightcyan",
+        97: "brightwhite",
+    }
+    return mapping.get(code)
+
+
+def ansi_to_tmux_styles(text: str) -> str:
+    state = {
+        "bold": False,
+        "dim": False,
+        "italic": False,
+        "underscore": False,
+        "fg": None,
+    }
+    result: list[str] = []
+    cursor = 0
+
+    for match in ANSI_ESCAPE_RE.finditer(text):
+        result.append(text[cursor:match.start()])
+        cursor = match.end()
+
+        code_string = match.group(1)
+        codes = [0] if code_string == "" else [int(part) for part in code_string.split(";") if part]
+
+        for code in codes:
+            if code == 0:
+                state = {
+                    "bold": False,
+                    "dim": False,
+                    "italic": False,
+                    "underscore": False,
+                    "fg": None,
+                }
+            elif code == 1:
+                state["bold"] = True
+            elif code == 2:
+                state["dim"] = True
+            elif code == 3:
+                state["italic"] = True
+            elif code == 4:
+                state["underscore"] = True
+            elif code == 22:
+                state["bold"] = False
+                state["dim"] = False
+            elif code == 23:
+                state["italic"] = False
+            elif code == 24:
+                state["underscore"] = False
+            elif code == 39:
+                state["fg"] = None
+            else:
+                color = ansi_code_to_color(code)
+                if color:
+                    state["fg"] = color
+
+        result.append(sgr_state_to_tmux(state))
+
+    result.append(text[cursor:])
+    converted = "".join(result)
+
+    if "#[" not in converted:
+        return converted
+
+    if not converted.endswith("#[default]"):
+        converted += "#[default]"
+    return converted
+
+
+def normalize_ansi_sequences(text: str) -> str:
+    normalized = re.sub(r"\\+033\[", "\x1b[", text)
+    normalized = re.sub(r"\\+e\[", "\x1b[", normalized)
+    normalized = re.sub(r"\\+x1b\[", "\x1b[", normalized)
+    return normalized
+
+
+def default_passthrough_script() -> Path:
+    return Path.home() / ".claude" / "statusline-command.sh"
+
+
+def select_passthrough_script() -> Path | None:
+    if os.environ.get("TMUX_CLAUDE_STATUS_DISABLE_PASSTHROUGH") == "1":
+        return None
+
+    script = default_passthrough_script()
+    if not script.exists():
+        return None
+
+    current_script = Path(__file__).resolve()
+    if script.resolve() == current_script:
+        return None
+
+    return script
+
+
+def render_via_passthrough(raw_payload: str) -> str | None:
+    script = select_passthrough_script()
+    if script is None:
+        return None
+
+    try:
+        result = subprocess.run(
+            ["sh", str(script)],
+            input=raw_payload,
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=2.0,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+    if result.returncode != 0:
+        return None
+
+    output_lines = result.stdout.splitlines()
+    if not output_lines:
+        return ""
+    return normalize_ansi_sequences(output_lines[0])
 
 
 def write_status_cache(
@@ -303,10 +460,13 @@ def parse_read_pane_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main_statusline(argv: list[str] | None = None) -> int:
     args = parse_statusline_args(argv)
-    payload = json.load(sys.stdin)
+    raw_payload = sys.stdin.read()
+    payload = json.loads(raw_payload)
     cache_dir = Path(args.cache_dir)
-    rendered_line = build_status_line(payload)
-    write_status_cache(payload, rendered_line, cache_dir, os.environ.get("TMUX_PANE"))
+    passthrough_line = render_via_passthrough(raw_payload)
+    rendered_line = passthrough_line if passthrough_line is not None else build_status_line(payload)
+    tmux_line = ansi_to_tmux_styles(rendered_line)
+    write_status_cache(payload, tmux_line, cache_dir, os.environ.get("TMUX_PANE"))
     sys.stdout.write(rendered_line)
     refresh_tmux()
     return 0
