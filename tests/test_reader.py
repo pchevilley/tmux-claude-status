@@ -69,6 +69,21 @@ class ReaderTests(unittest.TestCase):
             self.assertEqual(self.run_reader("%1", with_prefix=False), "hello")
             self.assertEqual(self.run_reader("%1", with_prefix=True), " | hello")
 
+    def test_reader_keeps_status_when_max_age_is_zero(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cache_dir = Path(temp_dir)
+            pane_path = cache_dir / "panes" / "%9.txt"
+            pane_path.parent.mkdir(parents=True, exist_ok=True)
+            pane_path.write_text("sticky", encoding="utf-8")
+            stale_time = time.time() - 3600
+            os.utime(pane_path, (stale_time, stale_time))
+
+            self.tmux("set-option", "-gq", "@claude-status-cache-dir", str(cache_dir))
+            self.tmux("set-option", "-gq", "@claude-status-max-age-seconds", "0")
+            self.tmux("set-option", "-gq", "@claude-status-prefix", " | ")
+
+            self.assertEqual(self.run_reader("%9", with_prefix=False), "sticky")
+
     def test_reader_suppresses_stale_and_missing_status(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             cache_dir = Path(temp_dir)

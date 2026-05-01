@@ -459,7 +459,7 @@ def read_pane_status(
     except OSError:
         return ""
 
-    if age_seconds > max_age_seconds:
+    if max_age_seconds > 0 and age_seconds > max_age_seconds:
         return ""
 
     try:

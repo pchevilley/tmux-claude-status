@@ -79,7 +79,7 @@ The plugin will automatically pick up `~/.claude/statusline-command.sh`, mirror 
 ```tmux
 set -g @claude-status-position 'right'
 set -g @claude-status-prefix ' | '
-set -g @claude-status-max-age-seconds '15'
+set -g @claude-status-max-age-seconds '0'
 ```
 
 Available options:
@@ -95,7 +95,8 @@ Available options:
   Default: `${XDG_STATE_HOME:-$HOME/.local/state}/tmux-claude-status`
 
 - `@claude-status-max-age-seconds`
-  Default: `15`
+  Default: `0`
+  Use `0` to keep the status visible until `SessionEnd` clears it
 
 ## Themes
 
@@ -125,7 +126,7 @@ If Claude shows the status line but tmux does not:
 If stale status sticks around:
 
 - confirm the `SessionEnd` hook is installed
-- otherwise it will disappear after `@claude-status-max-age-seconds`
+- if you want time-based expiry instead, set `@claude-status-max-age-seconds` to a positive number
 
 If your theme fights the plugin:
 
