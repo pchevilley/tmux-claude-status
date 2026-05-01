@@ -43,7 +43,7 @@ Add this to `~/.claude/settings.json`:
 {
   "statusLine": {
     "type": "command",
-    "command": "~/.tmux/plugins/tmux-claude-status/scripts/claude_statusline.py",
+    "command": "~/.config/tmux/plugins/tmux-claude-status/scripts/claude_statusline.py",
     "padding": 0
   },
   "hooks": {
@@ -53,7 +53,7 @@ Add this to `~/.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "~/.tmux/plugins/tmux-claude-status/scripts/claude_session_end.py"
+            "command": "~/.config/tmux/plugins/tmux-claude-status/scripts/claude_session_end.py"
           }
         ]
       }
@@ -62,7 +62,12 @@ Add this to `~/.claude/settings.json`:
 }
 ```
 
-If you installed the plugin somewhere other than `~/.tmux/plugins/tmux-claude-status`, update both script paths.
+Use your real plugin install path in both script entries.
+
+Common locations:
+
+- `~/.config/tmux/plugins/tmux-claude-status`
+- `~/.tmux/plugins/tmux-claude-status`
 
 ## tmux options
 
