@@ -84,6 +84,7 @@ configure_options() {
   set_default_option "@claude-status-prefix" " | "
   set_default_option "@claude-status-cache-dir" "$(default_cache_dir)"
   set_default_option "@claude-status-max-age-seconds" "0"
+  set_default_option "@claude-status-claude-visibility" "full"
 
   tmux_cmd set-option -gq "@claude-status-segment" "$PUBLIC_SEGMENT"
   tmux_cmd set-option -gq "@claude_status_segment" "$PUBLIC_SEGMENT"

@@ -129,6 +129,100 @@ class StatuslineTests(unittest.TestCase):
             panes_dir = cache_root / "tmux-claude-status" / "panes"
             self.assertFalse(panes_dir.exists())
 
+    def test_statusline_script_can_hide_claude_output_while_caching_rich_tmux_line(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cache_root = Path(temp_dir) / "state"
+            repo_dir = Path(temp_dir) / "project"
+            subprocess.run(
+                ["git", "init", "-q", "-b", "main", str(repo_dir)],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+            payload = {
+                "session_id": "session-hidden",
+                "model": {"display_name": "Opus 4.7 (1M context)"},
+                "workspace": {
+                    "project_dir": str(repo_dir),
+                    "current_dir": str(repo_dir),
+                },
+                "context_window": {"used_percentage": 12},
+                "cost": {
+                    "total_cost_usd": 0.23,
+                    "total_duration_ms": 30_000,
+                },
+            }
+
+            env = os.environ.copy()
+            env["TMUX_PANE"] = "%42"
+            env["XDG_STATE_HOME"] = str(cache_root)
+            env["TMUX_CLAUDE_STATUS_DISABLE_PASSTHROUGH"] = "1"
+            env["TMUX_CLAUDE_STATUS_CLAUDE_VISIBILITY"] = "hidden"
+
+            result = subprocess.run(
+                [str(SCRIPT)],
+                input=json.dumps(payload),
+                capture_output=True,
+                check=True,
+                text=True,
+                env=env,
+            )
+
+            self.assertEqual(result.stdout, "")
+            pane_path = cache_root / "tmux-claude-status" / "panes" / "%42.txt"
+            self.assertEqual(
+                pane_path.read_text(encoding="utf-8"),
+                "[Opus 4.7] project | main | $0.23 | 1M ctx | 12% | 30s",
+            )
+
+    def test_statusline_script_can_show_minimal_claude_output_with_rich_tmux_cache(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cache_root = Path(temp_dir) / "state"
+            repo_dir = Path(temp_dir) / "project"
+            subprocess.run(
+                ["git", "init", "-q", "-b", "main", str(repo_dir)],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+            payload = {
+                "session_id": "session-minimal",
+                "model": {"display_name": "Opus 4.7 (1M context)"},
+                "workspace": {
+                    "project_dir": str(repo_dir),
+                    "current_dir": str(repo_dir),
+                },
+                "context_window": {"used_percentage": 12},
+                "cost": {
+                    "total_cost_usd": 0.23,
+                    "total_duration_ms": 30_000,
+                },
+            }
+
+            env = os.environ.copy()
+            env["TMUX_PANE"] = "%77"
+            env["XDG_STATE_HOME"] = str(cache_root)
+            env["TMUX_CLAUDE_STATUS_DISABLE_PASSTHROUGH"] = "1"
+            env["TMUX_CLAUDE_STATUS_CLAUDE_VISIBILITY"] = "minimal"
+
+            result = subprocess.run(
+                [str(SCRIPT)],
+                input=json.dumps(payload),
+                capture_output=True,
+                check=True,
+                text=True,
+                env=env,
+            )
+
+            self.assertEqual(result.stdout, "project | main")
+            pane_path = cache_root / "tmux-claude-status" / "panes" / "%77.txt"
+            self.assertEqual(
+                pane_path.read_text(encoding="utf-8"),
+                "[Opus 4.7] project | main | $0.23 | 1M ctx | 12% | 30s",
+            )
+
     def test_statusline_script_uses_claude_generated_script_when_present(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             home_dir = Path(temp_dir) / "home"

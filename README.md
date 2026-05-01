@@ -84,6 +84,7 @@ The plugin will automatically pick up `~/.claude/statusline-command.sh`, mirror 
 set -g @claude-status-position 'right'
 set -g @claude-status-prefix ' | '
 set -g @claude-status-max-age-seconds '0'
+set -g @claude-status-claude-visibility 'full'
 ```
 
 Available options:
@@ -101,6 +102,11 @@ Available options:
 - `@claude-status-max-age-seconds`
   Default: `0`
   Use `0` to keep the status visible until `SessionEnd` clears it
+
+- `@claude-status-claude-visibility`
+  Values: `full`, `minimal`, `hidden`
+  Default: `full`
+  Controls what Claude shows in its own UI while tmux keeps the full cached line
 
 ## Themes
 
@@ -136,6 +142,12 @@ If your theme fights the plugin:
 
 - use `@claude-status-position 'manual'`
 - place `#{E:@claude_status_segment}` exactly where you want it
+
+If you want the rich line only in tmux:
+
+```tmux
+set -g @claude-status-claude-visibility 'hidden'
+```
 
 ## How it works
 

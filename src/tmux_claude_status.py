@@ -16,6 +16,7 @@ from typing import Any
 
 DEFAULT_CACHE_ROOT = "tmux-claude-status"
 ANSI_ESCAPE_RE = re.compile(r"\x1b\[([0-9;]*)m")
+VALID_CLAUDE_VISIBILITY = {"full", "minimal", "hidden"}
 
 
 def default_cache_dir() -> Path:
@@ -219,6 +220,27 @@ def build_status_line(payload: dict[str, Any]) -> str:
     return " | ".join(segment for segment in segments if segment)
 
 
+def build_minimal_claude_line(payload: dict[str, Any]) -> str:
+    model = payload.get("model", {}) if isinstance(payload.get("model"), dict) else {}
+    workspace = payload.get("workspace", {}) if isinstance(payload.get("workspace"), dict) else {}
+    project_dir = (
+        workspace.get("project_dir")
+        or workspace.get("current_dir")
+        or payload.get("cwd")
+        or ""
+    )
+    project_name = basename(str(project_dir)) if project_dir else ""
+    branch = detect_git_branch(str(project_dir) if project_dir else None)
+    segments = [segment for segment in (project_name, branch) if segment]
+
+    if segments:
+        return " | ".join(segments)
+
+    model_name = str(model.get("display_name") or model.get("id") or "Claude")
+    model_base, _ = parse_model_display_name(model_name)
+    return f"[{model_base}]"
+
+
 def sgr_state_to_tmux(state: dict[str, Any]) -> str:
     parts: list[str] = []
     if state.get("bold"):
@@ -374,6 +396,35 @@ def render_via_passthrough(raw_payload: str) -> str | None:
     return normalize_ansi_sequences(output_lines[0])
 
 
+def get_claude_visibility_mode() -> str:
+    override = os.environ.get("TMUX_CLAUDE_STATUS_CLAUDE_VISIBILITY", "").strip().lower()
+    if override in VALID_CLAUDE_VISIBILITY:
+        return override
+
+    if not os.environ.get("TMUX") and not os.environ.get("TMUX_SOCKET_NAME"):
+        return "full"
+
+    try:
+        result = subprocess.run(
+            [*tmux_command_prefix(), "show-option", "-gqv", "@claude-status-claude-visibility"],
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=0.25,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return "full"
+
+    if result.returncode != 0:
+        return "full"
+
+    value = result.stdout.strip().lower()
+    if value in VALID_CLAUDE_VISIBILITY:
+        return value
+
+    return "full"
+
+
 def write_status_cache(
     payload: dict[str, Any],
     rendered_line: str,
@@ -526,8 +577,17 @@ def main_statusline(argv: list[str] | None = None) -> int:
     passthrough_line = render_via_passthrough(raw_payload)
     rendered_line = passthrough_line if passthrough_line is not None else build_status_line(payload)
     tmux_line = ansi_to_tmux_styles(rendered_line)
+    visibility_mode = get_claude_visibility_mode()
+
+    if visibility_mode == "hidden":
+        claude_line = ""
+    elif visibility_mode == "minimal":
+        claude_line = build_minimal_claude_line(payload)
+    else:
+        claude_line = rendered_line
+
     write_status_cache(payload, tmux_line, cache_dir, os.environ.get("TMUX_PANE"))
-    sys.stdout.write(rendered_line)
+    sys.stdout.write(claude_line)
     refresh_tmux()
     return 0
 

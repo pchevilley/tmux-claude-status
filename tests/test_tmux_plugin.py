@@ -82,6 +82,10 @@ class TmuxPluginTests(unittest.TestCase):
         self.assertEqual(self.show("status-left"), "LEFT#{E:@claude_status_auto_segment}")
         self.assertEqual(self.show("status-right"), "THEME")
 
+    def test_plugin_sets_claude_visibility_default(self) -> None:
+        self.run_plugin()
+        self.assertEqual(self.show("@claude-status-claude-visibility"), "full")
+
 
 if __name__ == "__main__":
     unittest.main()
