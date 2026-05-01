@@ -8,7 +8,11 @@ This plugin uses the same Claude `statusLine` command for both places:
 - the script also caches that line per tmux pane
 - tmux reads the cache for the active pane
 
-- <img width="741" height="38" alt="image" src="https://github.com/user-attachments/assets/529504db-6b6e-4630-bac8-ee00c8d754ad" />
+ <img width="741" height="38" alt="image" src="https://github.com/user-attachments/assets/529504db-6b6e-4630-bac8-ee00c8d754ad" />
+ 
+ \
+<img width="329" height="38" alt="image" src="https://github.com/user-attachments/assets/48cf4a8f-4ed0-49da-beed-fe1a9b964d5f" />
+
 
 ## Requirements
 
