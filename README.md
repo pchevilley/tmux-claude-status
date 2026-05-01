@@ -133,7 +133,7 @@ If your theme fights the plugin:
 ## How it works
 
 - `scripts/claude_statusline.py` reads Claude's status payload from stdin
-- it renders a compact line like `[Opus] project | main | $0.12 | 1m 5s`
+- by default it renders a full fallback line with project, branch, cost, context, usage, and duration
 - when Claude is inside tmux, that line is cached for the current pane
 - `scripts/tmux_reader.sh` reads the cache for the active pane
 - `scripts/claude_session_end.py` removes the cache when Claude exits

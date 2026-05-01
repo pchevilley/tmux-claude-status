@@ -97,6 +97,26 @@ def format_cost(cost_value: Any) -> str:
     return f"${cost:.2f}"
 
 
+def format_cost_for_default(cost: dict[str, Any]) -> str:
+    if "total_cost_usd" not in cost:
+        return ""
+
+    cost_value = cost.get("total_cost_usd")
+    if cost_value in (None, ""):
+        return ""
+
+    try:
+        parsed_cost = float(cost_value)
+    except (TypeError, ValueError):
+        return ""
+
+    if parsed_cost < 0:
+        return ""
+    if 0 < parsed_cost < 0.01:
+        return "<$0.01"
+    return f"${parsed_cost:.2f}"
+
+
 def format_duration(duration_ms: Any) -> str:
     if duration_ms in (None, ""):
         return ""
@@ -125,12 +145,45 @@ def format_duration(duration_ms: Any) -> str:
     return " ".join(parts)
 
 
+def parse_model_display_name(model_name: str) -> tuple[str, str]:
+    match = re.match(r"^(.*?)(?: \(([0-9.]+[MK]) context\))?$", model_name)
+    if not match:
+        return model_name, ""
+
+    base_name = (match.group(1) or model_name).strip()
+    context_tier = match.group(2) or ""
+    return base_name, context_tier
+
+
+def format_context_usage(context_window: dict[str, Any]) -> str:
+    if "used_percentage" not in context_window:
+        return ""
+
+    used = context_window.get("used_percentage")
+    if used in (None, ""):
+        return ""
+
+    try:
+        used_int = int(round(float(used)))
+    except (TypeError, ValueError):
+        return ""
+
+    used_int = max(0, min(100, used_int))
+    return f"{used_int}%"
+
+
 def build_status_line(payload: dict[str, Any]) -> str:
     model = payload.get("model", {}) if isinstance(payload.get("model"), dict) else {}
     workspace = payload.get("workspace", {}) if isinstance(payload.get("workspace"), dict) else {}
     cost = payload.get("cost", {}) if isinstance(payload.get("cost"), dict) else {}
+    context_window = (
+        payload.get("context_window", {})
+        if isinstance(payload.get("context_window"), dict)
+        else {}
+    )
 
     model_name = str(model.get("display_name") or model.get("id") or "Claude")
+    model_base, context_tier = parse_model_display_name(model_name)
     project_dir = (
         workspace.get("project_dir")
         or workspace.get("current_dir")
@@ -140,7 +193,7 @@ def build_status_line(payload: dict[str, Any]) -> str:
     project_name = basename(str(project_dir)) if project_dir else ""
     branch = detect_git_branch(str(project_dir) if project_dir else None)
 
-    head = f"[{model_name}]"
+    head = f"[{model_base}]"
     if project_name:
         head = f"{head} {project_name}"
 
@@ -148,9 +201,16 @@ def build_status_line(payload: dict[str, Any]) -> str:
     if branch:
         segments.append(branch)
 
-    formatted_cost = format_cost(cost.get("total_cost_usd"))
+    formatted_cost = format_cost_for_default(cost)
     if formatted_cost:
         segments.append(formatted_cost)
+
+    if context_tier:
+        segments.append(f"{context_tier} ctx")
+
+    formatted_context_usage = format_context_usage(context_window)
+    if formatted_context_usage:
+        segments.append(formatted_context_usage)
 
     formatted_duration = format_duration(cost.get("total_duration_ms"))
     if formatted_duration:

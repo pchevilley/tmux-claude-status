@@ -30,11 +30,12 @@ class StatuslineTests(unittest.TestCase):
             )
 
             payload = {
-                "model": {"display_name": "Opus"},
+                "model": {"display_name": "Opus 4.7 (1M context)"},
                 "workspace": {
                     "project_dir": str(repo_dir),
                     "current_dir": str(repo_dir),
                 },
+                "context_window": {"used_percentage": 12},
                 "cost": {
                     "total_cost_usd": 0.12,
                     "total_duration_ms": 65_000,
@@ -43,7 +44,7 @@ class StatuslineTests(unittest.TestCase):
 
             self.assertEqual(
                 build_status_line(payload),
-                "[Opus] demo-project | main | $0.12 | 1m 5s",
+                "[Opus 4.7] demo-project | main | $0.12 | 1M ctx | 12% | 1m 5s",
             )
 
     def test_build_status_line_omits_empty_fields(self) -> None:
@@ -53,7 +54,7 @@ class StatuslineTests(unittest.TestCase):
             "cost": {"total_cost_usd": 0, "total_duration_ms": 0},
         }
 
-        self.assertEqual(build_status_line(payload), "[Sonnet] example")
+        self.assertEqual(build_status_line(payload), "[Sonnet] example | $0.00")
 
     def test_statusline_script_writes_cache_when_tmux_pane_exists(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -124,7 +125,7 @@ class StatuslineTests(unittest.TestCase):
                 env=env,
             )
 
-            self.assertEqual(result.stdout, "[Haiku] hello")
+            self.assertEqual(result.stdout, "[Haiku] hello | $0.00")
             panes_dir = cache_root / "tmux-claude-status" / "panes"
             self.assertFalse(panes_dir.exists())
 
