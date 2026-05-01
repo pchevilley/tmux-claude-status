@@ -48,11 +48,15 @@ class TmuxPluginTests(unittest.TestCase):
 
         self.run_plugin()
         first_value = self.show("status-right")
-        self.assertEqual(first_value, "THEME#{@claude_status_auto_segment}")
+        self.assertEqual(first_value, "THEME#{E:@claude_status_auto_segment}")
 
         self.run_plugin()
         second_value = self.show("status-right")
-        self.assertEqual(second_value, "THEME#{@claude_status_auto_segment}")
+        self.assertEqual(second_value, "THEME#{E:@claude_status_auto_segment}")
+        self.assertEqual(
+            self.tmux("display-message", "-p", "#{E:@claude_status_auto_segment}").stdout.strip(),
+            "",
+        )
 
     def test_manual_mode_leaves_status_options_untouched(self) -> None:
         self.tmux("set-option", "-gq", "@claude-status-position", "manual")
@@ -75,7 +79,7 @@ class TmuxPluginTests(unittest.TestCase):
 
         self.run_plugin()
 
-        self.assertEqual(self.show("status-left"), "LEFT#{@claude_status_auto_segment}")
+        self.assertEqual(self.show("status-left"), "LEFT#{E:@claude_status_auto_segment}")
         self.assertEqual(self.show("status-right"), "THEME")
 
 

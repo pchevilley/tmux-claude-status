@@ -95,13 +95,13 @@ If a theme still rewrites the status bar after this plugin loads, switch to manu
 
 ```tmux
 set -g @claude-status-position 'manual'
-set -g status-right '#{status-right}#{@claude_status_segment}'
+set -g status-right '#{status-right}#{E:@claude_status_segment}'
 ```
 
 You can also place it on the left:
 
 ```tmux
-set -g status-left '#{status-left}#{@claude_status_segment}'
+set -g status-left '#{status-left}#{E:@claude_status_segment}'
 ```
 
 ## Troubleshooting
@@ -120,7 +120,7 @@ If stale status sticks around:
 If your theme fights the plugin:
 
 - use `@claude-status-position 'manual'`
-- place `#{@claude_status_segment}` exactly where you want it
+- place `#{E:@claude_status_segment}` exactly where you want it
 
 ## How it works
 

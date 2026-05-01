@@ -27,6 +27,10 @@ remove_auto_segment_refs() {
   local current_value
   current_value="$(get_tmux_option "$option")"
 
+  current_value="${current_value//\#\{E:@claude_status_auto_segment\}/}"
+  current_value="${current_value//\#\{E:@claude_status_auto_segment_bare\}/}"
+  current_value="${current_value//\#\{E:@claude-status-auto-segment\}/}"
+  current_value="${current_value//\#\{E:@claude-status-auto-segment-bare\}/}"
   current_value="${current_value//\#\{@claude_status_auto_segment\}/}"
   current_value="${current_value//\#\{@claude_status_auto_segment_bare\}/}"
   current_value="${current_value//\#\{@claude-status-auto-segment\}/}"
@@ -38,6 +42,12 @@ remove_auto_segment_refs() {
 contains_any_segment_ref() {
   local value="$1"
 
+  printf '%s' "$value" | grep -Fq '#{E:@claude_status_segment}' && return 0
+  printf '%s' "$value" | grep -Fq '#{E:@claude-status-segment}' && return 0
+  printf '%s' "$value" | grep -Fq '#{E:@claude_status_auto_segment}' && return 0
+  printf '%s' "$value" | grep -Fq '#{E:@claude-status-auto-segment}' && return 0
+  printf '%s' "$value" | grep -Fq '#{E:@claude_status_auto_segment_bare}' && return 0
+  printf '%s' "$value" | grep -Fq '#{E:@claude-status-auto-segment-bare}' && return 0
   printf '%s' "$value" | grep -Fq '#{@claude_status_segment}' && return 0
   printf '%s' "$value" | grep -Fq '#{@claude-status-segment}' && return 0
   printf '%s' "$value" | grep -Fq '#{@claude_status_auto_segment}' && return 0
@@ -61,9 +71,9 @@ append_auto_segment() {
   current_value="$(get_tmux_option "$option")"
 
   if [ -n "$current_value" ]; then
-    append_value='#{@claude_status_auto_segment}'
+    append_value='#{E:@claude_status_auto_segment}'
   else
-    append_value='#{@claude_status_auto_segment_bare}'
+    append_value='#{E:@claude_status_auto_segment_bare}'
   fi
 
   tmux_cmd set-option -gq "$option" "${current_value}${append_value}"
