@@ -1,4 +1,8 @@
+<img width="2172" height="724" alt="image" src="https://github.com/user-attachments/assets/7c69bde0-0a57-4603-956f-be1e075543ef" />
+
 # tmux-claude-status
+
+
 
 Show Claude Code's status line in your tmux status bar.
 
